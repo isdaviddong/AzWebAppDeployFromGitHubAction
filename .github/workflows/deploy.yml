@@ -1,0 +1,90 @@
+name: Deploy .NET 8 to Azure Web App
+
+on:
+  workflow_dispatch:
+    inputs:
+      webapp_name:
+        description: "Azure Web App Name"
+        required: true
+        default: "testwebapp202609"
+
+      slot_name:
+        description: "Deployment Slot"
+        required: true
+        default: "staging"
+
+  push:
+    branches:
+      - main
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # Checkout
+      # ======================================================
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # Setup .NET 8
+      # ======================================================
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+
+      # ======================================================
+      # Restore
+      # ======================================================
+
+      - name: Restore
+        run: dotnet restore
+
+
+      # ======================================================
+      # Build
+      # ======================================================
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+
+      # ======================================================
+      # Publish
+      # ======================================================
+
+      - name: Publish
+        run: dotnet publish --configuration Release --no-build --output ./publish
+
+
+      # ======================================================
+      # Login Azure
+      # ======================================================
+
+      - name: Login Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+
+      # ======================================================
+      # Deploy Azure Web App
+      # ======================================================
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ inputs.webapp_name || 'testwebapp202609' }}
+          slot-name: ${{ inputs.slot_name || 'staging' }}
+          package: ./publish
